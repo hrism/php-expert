@@ -20,6 +20,12 @@ Modern PHP development skill for Claude Code.
 npx skills add hrism/php-expert
 ```
 
+### prpm
+
+```bash
+prpm install php-expert
+```
+
 ### Manual
 
 Copy `skills/php-expert/SKILL.md` to `~/.claude/skills/php-expert/`

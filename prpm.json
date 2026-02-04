@@ -1,0 +1,10 @@
+{
+  "name": "php-expert",
+  "version": "1.0.0",
+  "description": "Modern PHP development skill for Claude Code - language features, architecture patterns, database optimization, and performance tuning",
+  "author": "hrism",
+  "format": "claude",
+  "subtype": "skill",
+  "files": ["skills/php-expert/SKILL.md"],
+  "tags": ["php", "php8", "backend", "architecture", "performance", "database", "security"]
+}
