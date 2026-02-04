@@ -1,8 +1,6 @@
 ---
 name: php-expert
 description: Modern PHP development combining language mastery, architecture patterns, and performance optimization. For building scalable, maintainable PHP applications with clean architecture.
-metadata:
-  model: inherit
 ---
 
 # PHP Expert
