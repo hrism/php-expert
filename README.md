@@ -22,7 +22,7 @@ npx skills add hrism/php-expert
 
 ### Manual
 
-Copy `SKILL.md` to `~/.claude/skills/php-expert/`
+Copy `skills/php-expert/SKILL.md` to `~/.claude/skills/php-expert/`
 
 ## Usage
 
