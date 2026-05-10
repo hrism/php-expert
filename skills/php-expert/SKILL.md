@@ -13,6 +13,7 @@ Modern PHP development skill covering language features, architecture patterns, 
 - Designing API backends without frameworks
 - Optimizing PHP performance and memory usage
 - Implementing clean architecture patterns
+- Building maintainable WordPress plugins or themes with modern PHP
 
 ## Core Principles
 
@@ -22,6 +23,134 @@ Modern PHP development skill covering language features, architecture patterns, 
 4. SPL data structures when beneficial
 5. Profile before optimizing
 6. PSR compliance (PSR-1, PSR-4, PSR-12)
+
+## WordPress Development
+
+Use modern PHP structure even in WordPress. WordPress is globally oriented, but plugin code does not need to be.
+
+### Recommended Approach
+
+- Put plugin classes under a vendor namespace such as `Acme\SeoToolkit\`
+- Use Composer PSR-4 autoloading instead of manual `require_once` chains
+- Keep the plugin bootstrap file thin: load the autoloader, build services, register hooks
+- Minimize global functions; if unavoidable, prefix them aggressively
+- Isolate WordPress-specific code from domain logic so business rules stay testable
+
+### Plugin Structure
+
+```text
+my-plugin/
+├── my-plugin.php
+├── composer.json
+├── src/
+│   ├── Bootstrap.php
+│   ├── Admin/
+│   │   └── SettingsPage.php
+│   ├── Domain/
+│   │   └── SlugGenerator.php
+│   └── Infrastructure/
+│       └── WordPressOptionRepository.php
+└── vendor/
+```
+
+### Composer Autoload
+
+```json
+{
+  "autoload": {
+    "psr-4": {
+      "Acme\\SeoToolkit\\": "src/"
+    }
+  }
+}
+```
+
+Run `composer dump-autoload` after namespace changes.
+
+### Thin Bootstrap File
+
+```php
+<?php
+declare(strict_types=1);
+
+/**
+ * Plugin Name: SEO Toolkit
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+require_once __DIR__ . '/vendor/autoload.php';
+
+(new Acme\SeoToolkit\Bootstrap())->register();
+```
+
+### Hook Registration Through Classes
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace Acme\SeoToolkit;
+
+final class Bootstrap
+{
+    public function __construct(
+        private readonly Admin\SettingsPage $settingsPage = new Admin\SettingsPage(),
+    ) {
+    }
+
+    public function register(): void
+    {
+        add_action('admin_menu', [$this->settingsPage, 'register']);
+    }
+}
+```
+
+### Keep WordPress at the Boundary
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace Acme\SeoToolkit\Domain;
+
+final class SlugGenerator
+{
+    public function generate(string $title): string
+    {
+        $slug = strtolower(trim($title));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+
+        return trim($slug, '-');
+    }
+}
+```
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace Acme\SeoToolkit\Infrastructure;
+
+final class WordPressOptionRepository
+{
+    public function save(string $key, string $value): void
+    {
+        update_option($key, $value);
+    }
+}
+```
+
+### WordPress-Specific Rules
+
+- Do not put non-trivial business logic directly inside action/filter callbacks
+- Treat WordPress functions as infrastructure adapters, not your core domain API
+- Escape on output (`esc_html`, `esc_attr`, `wp_kses_post`) and validate on input
+- Verify capabilities and nonces for admin actions and form submissions
+- Prefer constructor injection for collaborators, but adapt to WordPress lifecycle pragmatically
+- If you must expose global functions for hooks, make them thin wrappers around namespaced classes
 
 ## Language Features (PHP 8+)
 
