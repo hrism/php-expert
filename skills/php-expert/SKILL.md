@@ -1,6 +1,6 @@
 ---
 name: php-expert
-description: Modern PHP development combining language mastery, architecture patterns, and performance optimization. For building scalable, maintainable PHP applications with clean architecture.
+description: Modern PHP development combining language mastery, architecture patterns, security review, and performance optimization. For building scalable, maintainable PHP applications with clean architecture.
 ---
 
 # PHP Expert
@@ -23,6 +23,7 @@ Modern PHP development skill covering language features, architecture patterns, 
 4. SPL data structures when beneficial
 5. Profile before optimizing
 6. PSR compliance (PSR-1, PSR-4, PSR-12)
+7. Use namespaces and Composer PSR-4 autoloading to avoid global symbol collisions and manual `require_once` management
 
 ## WordPress Development
 
@@ -151,6 +152,9 @@ final class WordPressOptionRepository
 - Verify capabilities and nonces for admin actions and form submissions
 - Prefer constructor injection for collaborators, but adapt to WordPress lifecycle pragmatically
 - If you must expose global functions for hooks, make them thin wrappers around namespaced classes
+- Use `get_stylesheet_directory*()` / `get_stylesheet_uri()` when child themes must override assets or data
+- For AJAX/HTMX endpoints, return the real failure status code instead of silently rendering fallback HTML with `200`
+- Avoid `outline: none`; preserve visible focus states and sufficient placeholder contrast
 
 ## Language Features (PHP 8+)
 
@@ -581,6 +585,31 @@ class Validator {
     }
 }
 ```
+
+### Security Review Checklist
+
+Before shipping PHP that touches URLs, files, external data, output, or operations, explicitly check:
+
+- URL allowlists: accept only needed schemes (`http` / `https`), reject `javascript:`, `ftp:`, `phar:`, userinfo, and malformed hosts
+- SSRF guards: reject IP literals in user-provided external URLs, resolve hosts when fetching server-side, and block private/reserved/link-local ranges
+- Header safety: strip CRLF from header values, redirects, filenames, and download names before sending them
+- Log safety: normalize newlines and control characters before writing untrusted values to logs
+- Path safety: resolve relative paths with `realpath()` or an equivalent base-dir check; never trust joined strings alone
+- Public file exposure: keep cache, logs, uploads-in-progress, secrets, and `vendor/` outside the public web root or deny direct access
+- Atomic writes: write JSON/config/cache files to a temp file, `flock()` where needed, then `rename()`; check every `fopen`, `mkdir`, `chmod`, `filemtime`, `json_encode`, and `rename` failure
+- External data schemas: validate scraper/API payload types, required keys, array shape, and empty-result semantics before use
+- Null guards: treat `parse_url`, `json_decode`, `preg_match`, array offsets, and optional WordPress APIs as fallible
+- Dependency policy: commit lockfiles for applications and make CI fail on relevant vulnerability levels; do not hide audit failures with `continue-on-error`
+- Operational docs: README/deploy steps must be executable in the target hosting model; do not document impossible restarts or unavailable shell access
+
+### Context-Dependent Review Points
+
+These are not always defects, but each should be an explicit decision:
+
+- Hardcoded content, nav, FAQ, reviews, and footer links: keep in code only when update frequency and ownership justify it; otherwise use config/CMS/data files
+- Scrapers: document brittle selectors/XPath/regex assumptions and add detection for stale or empty cache updates
+- Dependency pinning: decide whether `require-dev` and build tools need exact pins or range constraints
+- CI workflow: decide which audit/severity levels block PRs and keep the rule consistent with README
 
 ### Password Handling
 
