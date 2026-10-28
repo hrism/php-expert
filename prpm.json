@@ -1,10 +1,20 @@
 {
   "name": "php-expert",
-  "version": "1.0.0",
-  "description": "Modern PHP development skill for Claude Code - language features, architecture patterns, security review, database optimization, and performance tuning",
+  "version": "1.1.0",
+  "description": "Modern PHP development skill for Claude Code - PHP 8.1-8.5 language features, architecture, database access, security review, performance, testing and tooling",
   "author": "hrism",
   "format": "claude",
   "subtype": "skill",
-  "files": ["skills/php-expert/SKILL.md"],
-  "tags": ["php", "php8", "backend", "architecture", "performance", "database", "security"]
+  "files": [
+    "skills/php-expert/SKILL.md",
+    "skills/php-expert/references/architecture.md",
+    "skills/php-expert/references/database.md",
+    "skills/php-expert/references/error-handling.md",
+    "skills/php-expert/references/language-features.md",
+    "skills/php-expert/references/performance.md",
+    "skills/php-expert/references/security.md",
+    "skills/php-expert/references/testing-tooling.md",
+    "skills/php-expert/references/wordpress.md"
+  ],
+  "tags": ["php", "php8", "backend", "architecture", "performance", "database", "security", "testing", "wordpress"]
 }

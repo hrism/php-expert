@@ -1,682 +1,78 @@
 ---
 name: php-expert
-description: Modern PHP development combining language mastery, architecture patterns, security review, and performance optimization. For building scalable, maintainable PHP applications with clean architecture.
+description: Use when writing, reviewing, refactoring, debugging, or securing PHP code - .php files, composer.json, PDO/SQL access, PSR-4 autoloading, PHPUnit/Pest tests, PHPStan/Psalm, WordPress plugins and themes, or plain-PHP APIs. Covers PHP 8.1-8.5 language features, architecture, database access, error handling, security review, performance profiling, testing, and tooling.
 ---
 
 # PHP Expert
 
-Modern PHP development skill covering language features, architecture patterns, database optimization, and performance tuning.
+Practical guidance for production PHP: write modern, typed, tested code, and review it against a concrete security and correctness checklist. Detailed material lives in `references/`; load only the files the task needs.
 
 ## When to Use
 
-- Building or refactoring PHP applications
-- Designing API backends without frameworks
-- Optimizing PHP performance and memory usage
-- Implementing clean architecture patterns
-- Building maintainable WordPress plugins or themes with modern PHP
+- Building, refactoring, or reviewing PHP applications, libraries, CLIs, or APIs
+- Database access with PDO: queries, transactions, pagination, performance
+- Security review of PHP that handles URLs, files, uploads, sessions, passwords, or external data
+- Setting up or fixing tests, static analysis, Composer, or CI for PHP
+- WordPress plugins and themes written with modern PHP
+
+In a Laravel or Symfony project, the framework's conventions decide structure, container, and ORM. Use this skill for the language, security, database correctness, and testing rules.
+
+## Workflow
+
+1. **Detect the project first.** Read `composer.json` (`require.php`, `config.platform.php`, framework packages, dev tools), `phpunit.xml*`, `phpstan.neon*`, any style config, and a few existing files. Existing conventions and the framework's idioms win over this skill.
+2. **Respect the minimum PHP version.** Use only syntax available at the project's minimum; the version tags are in [language-features](references/language-features.md). If the version cannot be determined, assume PHP 8.1 and say so.
+3. **Write the code** following the principles below. Examples in this skill target PHP 8.1 unless tagged.
+4. **Verify before reporting done.** Run `php -l` on changed files and the project's own commands (`composer test`, `composer analyse`, `vendor/bin/phpunit`, `vendor/bin/phpstan`). Report failures as they are. If nothing could be run, say so explicitly instead of implying the code works.
+5. **For reviews,** apply the Security Gate below and the matching reference files. Report concrete findings with file and line, not general advice.
 
 ## Core Principles
 
 1. Built-in functions before custom implementations
-2. Generators for large datasets
+2. Generators for large datasets (and make sure the data source really streams)
 3. Strict typing everywhere (`declare(strict_types=1);` at file top)
 4. SPL data structures when beneficial
 5. Profile before optimizing
-6. PSR compliance (PSR-1, PSR-4, PSR-12)
+6. PSR compliance (PSR-1, PSR-4, PER Coding Style as the successor of PSR-12)
 7. Use namespaces and Composer PSR-4 autoloading to avoid global symbol collisions and manual `require_once` management
-
-## WordPress Development
-
-Use modern PHP structure even in WordPress. WordPress is globally oriented, but plugin code does not need to be.
-
-### Recommended Approach
-
-- Put plugin classes under a vendor namespace such as `Acme\SeoToolkit\`
-- Use Composer PSR-4 autoloading instead of manual `require_once` chains
-- Keep the plugin bootstrap file thin: load the autoloader, build services, register hooks
-- Minimize global functions; if unavoidable, prefix them aggressively
-- Isolate WordPress-specific code from domain logic so business rules stay testable
-
-### Plugin Structure
-
-```text
-my-plugin/
-├── my-plugin.php
-├── composer.json
-├── src/
-│   ├── Bootstrap.php
-│   ├── Admin/
-│   │   └── SettingsPage.php
-│   ├── Domain/
-│   │   └── SlugGenerator.php
-│   └── Infrastructure/
-│       └── WordPressOptionRepository.php
-└── vendor/
-```
-
-### Composer Autoload
-
-```json
-{
-  "autoload": {
-    "psr-4": {
-      "Acme\\SeoToolkit\\": "src/"
-    }
-  }
-}
-```
-
-Run `composer dump-autoload` after namespace changes.
-
-### Thin Bootstrap File
-
-```php
-<?php
-declare(strict_types=1);
-
-/**
- * Plugin Name: SEO Toolkit
- */
-
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-require_once __DIR__ . '/vendor/autoload.php';
-
-(new Acme\SeoToolkit\Bootstrap())->register();
-```
-
-### Hook Registration Through Classes
-
-```php
-<?php
-declare(strict_types=1);
-
-namespace Acme\SeoToolkit;
-
-final class Bootstrap
-{
-    public function __construct(
-        private readonly Admin\SettingsPage $settingsPage = new Admin\SettingsPage(),
-    ) {
-    }
-
-    public function register(): void
-    {
-        add_action('admin_menu', [$this->settingsPage, 'register']);
-    }
-}
-```
-
-### Keep WordPress at the Boundary
-
-```php
-<?php
-declare(strict_types=1);
-
-namespace Acme\SeoToolkit\Domain;
-
-final class SlugGenerator
-{
-    public function generate(string $title): string
-    {
-        $slug = strtolower(trim($title));
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
-
-        return trim($slug, '-');
-    }
-}
-```
-
-```php
-<?php
-declare(strict_types=1);
-
-namespace Acme\SeoToolkit\Infrastructure;
-
-final class WordPressOptionRepository
-{
-    public function save(string $key, string $value): void
-    {
-        update_option($key, $value);
-    }
-}
-```
-
-### WordPress-Specific Rules
-
-- Do not put non-trivial business logic directly inside action/filter callbacks
-- Treat WordPress functions as infrastructure adapters, not your core domain API
-- Escape on output (`esc_html`, `esc_attr`, `wp_kses_post`) and validate on input
-- Verify capabilities and nonces for admin actions and form submissions
-- Prefer constructor injection for collaborators, but adapt to WordPress lifecycle pragmatically
-- If you must expose global functions for hooks, make them thin wrappers around namespaced classes
-- Use `get_stylesheet_directory*()` / `get_stylesheet_uri()` when child themes must override assets or data
-- For AJAX/HTMX endpoints, return the real failure status code instead of silently rendering fallback HTML with `200`
-- Avoid `outline: none`; preserve visible focus states and sufficient placeholder contrast
-
-## Language Features (PHP 8+)
-
-### Type System
-
-```php
-<?php
-declare(strict_types=1);
-
-// Union types
-function process(string|int $id): array|false { }
-
-// Intersection types
-function handle(Countable&Iterator $collection): void { }
-
-// Constructor property promotion
-class Product {
-    public function __construct(
-        private readonly string $id,
-        private string $name,
-        private int $price = 0
-    ) {}
-}
-
-// Enums with methods
-enum OrderStatus: string {
-    case Pending = 'pending';
-    case Shipped = 'shipped';
-    case Delivered = 'delivered';
-    
-    public function label(): string {
-        return match($this) {
-            self::Pending => '処理中',
-            self::Shipped => '発送済',
-            self::Delivered => '配達完了',
-        };
-    }
-}
-```
-
-### Match Expressions
-
-```php
-// Replace switch with match
-$result = match($status) {
-    'active', 'published' => $this->handleActive($item),
-    'draft' => $this->handleDraft($item),
-    'archived' => throw new InvalidStateException(),
-    default => null,
-};
-```
-
-### Attributes
-
-```php
-#[Attribute(Attribute::TARGET_METHOD)]
-class Route {
-    public function __construct(
-        public string $path,
-        public string $method = 'GET'
-    ) {}
-}
-
-class ApiController {
-    #[Route('/products/{id}', 'GET')]
-    public function show(string $id): array { }
-}
-```
-
-## Memory-Efficient Data Processing
-
-### Generators
-
-```php
-// ❌ BAD: Loads everything into memory
-function getAllProducts(PDO $db): array {
-    return $db->query('SELECT * FROM products')->fetchAll();
-}
-
-// ✅ GOOD: Yields one at a time
-function iterateProducts(PDO $db): Generator {
-    $stmt = $db->query('SELECT * FROM products');
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        yield $row;
-    }
-}
-
-// Chained generators for ETL
-function extractCsv(string $path): Generator {
-    $handle = fopen($path, 'r');
-    fgetcsv($handle); // skip header
-    while (($row = fgetcsv($handle)) !== false) {
-        yield $row;
-    }
-    fclose($handle);
-}
-
-function transform(Generator $rows): Generator {
-    foreach ($rows as $row) {
-        yield [
-            'sku' => trim($row[0]),
-            'price' => (int) $row[1],
-            'stock' => max(0, (int) $row[2]),
-        ];
-    }
-}
-```
-
-### SPL Data Structures
-
-```php
-// SplQueue for FIFO processing
-$queue = new SplQueue();
-$queue->enqueue($task1);
-$queue->enqueue($task2);
-while (!$queue->isEmpty()) {
-    $task = $queue->dequeue();
-    process($task);
-}
-
-// SplHeap for priority queue
-class TaskHeap extends SplMaxHeap {
-    protected function compare($a, $b): int {
-        return $a['priority'] <=> $b['priority'];
-    }
-}
-
-// SplFixedArray: memory-efficient for large fixed-size arrays
-// Note: PHP 8+ optimized regular arrays, so speed benefit is minimal.
-// Use primarily for memory constraints, not speed optimization.
-$arr = new SplFixedArray(10000);
-```
-
-## Architecture Patterns
-
-### Dependency Injection Container
-
-```php
-namespace App\Core;
-
-class Container {
-    private array $definitions = [];
-    private array $instances = [];
-
-    public function set(string $id, callable $factory): void {
-        $this->definitions[$id] = $factory;
-    }
-
-    public function get(string $id): mixed {
-        if (!isset($this->instances[$id])) {
-            if (!isset($this->definitions[$id])) {
-                throw new \RuntimeException("Service not found: {$id}");
-            }
-            $this->instances[$id] = $this->definitions[$id]($this);
-        }
-        return $this->instances[$id];
-    }
-
-    public function has(string $id): bool {
-        return isset($this->definitions[$id]);
-    }
-}
-
-// Registration
-$container->set(PDO::class, fn() => new PDO(
-    getenv('DB_DSN'),
-    getenv('DB_USER'),
-    getenv('DB_PASS'),
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-));
-
-$container->set(ProductRepository::class, fn($c) => 
-    new ProductRepository($c->get(PDO::class))
-);
-```
-
-### Repository Pattern
-
-```php
-interface RepositoryInterface {
-    public function find(string $id): ?array;
-    public function findBy(array $criteria): array;
-    public function save(array $data): string;
-    public function delete(string $id): bool;
-}
-
-class ProductRepository implements RepositoryInterface {
-    public function __construct(private PDO $db) {}
-
-    public function find(string $id): ?array {
-        $stmt = $this->db->prepare('SELECT * FROM products WHERE id = ?');
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    public function findByIds(array $ids): array {
-        if (empty($ids)) return [];
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db->prepare(
-            "SELECT * FROM products WHERE id IN ({$placeholders})"
-        );
-        $stmt->execute(array_values($ids));
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function save(array $data): string {
-        if (isset($data['id'])) {
-            return $this->update($data);
-        }
-        return $this->insert($data);
-    }
-
-    // Note: $data keys must come from trusted source (DTO/Entity), not raw user input
-    private function insert(array $data): string {
-        $columns = implode(', ', array_keys($data));
-        $placeholders = implode(', ', array_fill(0, count($data), '?'));
-        $stmt = $this->db->prepare(
-            "INSERT INTO products ({$columns}) VALUES ({$placeholders})"
-        );
-        $stmt->execute(array_values($data));
-        return $this->db->lastInsertId();
-    }
-}
-```
-
-### Service Layer
-
-```php
-class ProductService {
-    public function __construct(
-        private ProductRepository $repo,
-        private InventoryService $inventory,
-        private EventDispatcher $events
-    ) {}
-
-    public function purchase(string $productId, int $quantity): Order {
-        $product = $this->repo->find($productId);
-        
-        if (!$product) {
-            throw new NotFoundException('Product not found');
-        }
-
-        if (!$this->inventory->hasStock($productId, $quantity)) {
-            throw new InsufficientStockException();
-        }
-
-        $order = $this->createOrder($product, $quantity);
-        $this->inventory->decrement($productId, $quantity);
-        $this->events->dispatch(new OrderCreated($order));
-
-        return $order;
-    }
-}
-```
-
-## Database Optimization
-
-### Transaction with Savepoints
-
-```php
-public function bulkImport(array $items): ImportResult {
-    $this->db->beginTransaction();
-    $success = 0;
-    $failed = [];
-
-    try {
-        foreach ($items as $i => $item) {
-            $savepoint = "item_{$i}";
-            $this->db->exec("SAVEPOINT {$savepoint}");
-            
-            try {
-                $this->import($item);
-                $success++;
-            } catch (ValidationException $e) {
-                $this->db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
-                $failed[] = ['index' => $i, 'error' => $e->getMessage()];
-            }
-        }
-        $this->db->commit();
-    } catch (Exception $e) {
-        $this->db->rollBack();
-        throw $e;
-    }
-
-    return new ImportResult($success, $failed);
-}
-```
-
-### N+1 Prevention
-
-```php
-// ❌ BAD: N+1 queries
-$orders = $orderRepo->findAll();
-foreach ($orders as &$order) {
-    $order['customer'] = $customerRepo->find($order['customer_id']);
-}
-
-// ✅ GOOD: Batch fetch with index
-$orders = $orderRepo->findAll();
-$customerIds = array_unique(array_column($orders, 'customer_id'));
-$customers = $customerRepo->findByIds($customerIds);
-$customerIndex = array_column($customers, null, 'id');
-
-foreach ($orders as &$order) {
-    $order['customer'] = $customerIndex[$order['customer_id']] ?? null;
-}
-```
-
-### Cursor-based Pagination
-
-```php
-function paginateCursor(PDO $db, ?string $cursor, int $limit = 20): array {
-    $sql = 'SELECT * FROM products WHERE 1=1';
-    $params = [];
-
-    if ($cursor) {
-        $decoded = json_decode(base64_decode($cursor), true);
-        $sql .= ' AND (created_at, id) < (?, ?)';
-        $params[] = $decoded['created_at'];
-        $params[] = $decoded['id'];
-    }
-
-    $sql .= ' ORDER BY created_at DESC, id DESC LIMIT ?';
-    $params[] = $limit + 1;
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $hasMore = count($rows) > $limit;
-    if ($hasMore) array_pop($rows);
-
-    $nextCursor = null;
-    if ($hasMore && !empty($rows)) {
-        $last = end($rows);
-        $nextCursor = base64_encode(json_encode([
-            'created_at' => $last['created_at'],
-            'id' => $last['id']
-        ]));
-    }
-
-    return ['data' => $rows, 'next_cursor' => $nextCursor];
-}
-```
-
-## Error Handling
-
-### Exception Hierarchy
-
-```php
-abstract class DomainException extends Exception {
-    public function __construct(
-        string $message,
-        public readonly int $statusCode = 400,
-        public readonly array $context = []
-    ) {
-        parent::__construct($message);
-    }
-}
-
-class NotFoundException extends DomainException {
-    public function __construct(string $message = 'Resource not found') {
-        parent::__construct($message, 404);
-    }
-}
-
-class ValidationException extends DomainException {
-    public function __construct(public readonly array $errors) {
-        parent::__construct('Validation failed', 422, ['errors' => $errors]);
-    }
-}
-```
-
-### Global Error Handler
-
-```php
-set_exception_handler(function (Throwable $e): void {
-    $status = $e instanceof DomainException ? $e->statusCode : 500;
-    $context = $e instanceof DomainException ? $e->context : [];
-    
-    if ($status >= 500) {
-        error_log(sprintf(
-            "[%s] %s in %s:%d\n%s",
-            date('Y-m-d H:i:s'),
-            $e->getMessage(),
-            $e->getFile(),
-            $e->getLine(),
-            $e->getTraceAsString()
-        ));
-    }
-
-    http_response_code($status);
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage(),
-        ...$context
-    ]);
-});
-```
-
-## Security
-
-### Input Validation
-
-```php
-class Validator {
-    private array $errors = [];
-
-    public function required(string $field, mixed $value): self {
-        if (empty($value) && $value !== '0') {
-            $this->errors[$field][] = "{$field} is required";
-        }
-        return $this;
-    }
-
-    public function email(string $field, mixed $value): self {
-        if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-            $this->errors[$field][] = "{$field} must be valid email";
-        }
-        return $this;
-    }
-
-    public function validate(): void {
-        if (!empty($this->errors)) {
-            throw new ValidationException($this->errors);
-        }
-    }
-}
-```
-
-### Security Review Checklist
-
-Before shipping PHP that touches URLs, files, external data, output, or operations, explicitly check:
-
-- URL allowlists: accept only needed schemes (`http` / `https`), reject `javascript:`, `ftp:`, `phar:`, userinfo, and malformed hosts
-- SSRF guards: reject IP literals in user-provided external URLs, resolve hosts when fetching server-side, and block private/reserved/link-local ranges
-- Header safety: strip CRLF from header values, redirects, filenames, and download names before sending them
-- Log safety: normalize newlines and control characters before writing untrusted values to logs
-- Path safety: resolve relative paths with `realpath()` or an equivalent base-dir check; never trust joined strings alone
-- Public file exposure: keep cache, logs, uploads-in-progress, secrets, and `vendor/` outside the public web root or deny direct access
-- Atomic writes: write JSON/config/cache files to a temp file, `flock()` where needed, then `rename()`; check every `fopen`, `mkdir`, `chmod`, `filemtime`, `json_encode`, and `rename` failure
-- External data schemas: validate scraper/API payload types, required keys, array shape, and empty-result semantics before use
-- Null guards: treat `parse_url`, `json_decode`, `preg_match`, array offsets, and optional WordPress APIs as fallible
-- Dependency policy: commit lockfiles for applications and make CI fail on relevant vulnerability levels; do not hide audit failures with `continue-on-error`
-- Operational docs: README/deploy steps must be executable in the target hosting model; do not document impossible restarts or unavailable shell access
-
-### Context-Dependent Review Points
-
-These are not always defects, but each should be an explicit decision:
-
-- Hardcoded content, nav, FAQ, reviews, and footer links: keep in code only when update frequency and ownership justify it; otherwise use config/CMS/data files
-- Scrapers: document brittle selectors/XPath/regex assumptions and add detection for stale or empty cache updates
-- Dependency pinning: decide whether `require-dev` and build tools need exact pins or range constraints
-- CI workflow: decide which audit/severity levels block PRs and keep the rule consistent with README
-
-### Password Handling
-
-```php
-// Hash with cost factor
-$hash = password_hash($password, PASSWORD_ARGON2ID, [
-    'memory_cost' => 65536,
-    'time_cost' => 4,
-    'threads' => 3
-]);
-
-// Verify and rehash if needed
-if (!password_verify($input, $storedHash)) {
-    throw new AuthenticationException();
-}
-
-if (password_needs_rehash($storedHash, PASSWORD_ARGON2ID)) {
-    $newHash = password_hash($input, PASSWORD_ARGON2ID);
-    $this->updateHash($userId, $newHash);
-}
-```
-
-## Performance Profiling
-
-### Simple Profiler
-
-```php
-class Profiler {
-    private static array $timers = [];
-    private static array $memory = [];
-
-    public static function start(string $label): void {
-        self::$timers[$label] = hrtime(true);
-        self::$memory[$label] = memory_get_usage();
-    }
-
-    public static function end(string $label): array {
-        $duration = (hrtime(true) - self::$timers[$label]) / 1e6;
-        $memory = memory_get_usage() - self::$memory[$label];
-        
-        return [
-            'duration_ms' => round($duration, 2),
-            'memory_bytes' => $memory,
-            'memory_readable' => self::formatBytes($memory)
-        ];
-    }
-
-    private static function formatBytes(int $bytes): string {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $i = floor(log(abs($bytes) + 1, 1024));
-        return round($bytes / (1024 ** $i), 2) . ' ' . $units[$i];
-    }
-}
-
-// Usage
-Profiler::start('import');
-$result = $service->bulkImport($data);
-$stats = Profiler::end('import');
-```
+8. Make illegal states unrepresentable: enums, readonly value objects, and constructor validation instead of arrays and magic strings
+9. Dependencies point inward; constructors receive collaborators; the domain never touches PDO, HTTP, or WordPress
+10. Untrusted input is validated at the boundary, output is escaped for its context, and internal error details never reach clients
+
+## Reference Map
+
+| Task | Read |
+|---|---|
+| Language features by PHP version, enums, readonly, hooks, attributes, Unicode, dates | [language-features](references/language-features.md) |
+| Layering, container, repository, service layer, transactions around use cases, PSR choices | [architecture](references/architecture.md) |
+| PDO setup, prepared statements, transactions, N+1, pagination, large result sets | [database](references/database.md) |
+| Exception hierarchy, global handlers, validation, safe error responses | [error-handling](references/error-handling.md) |
+| Full security checklist, SSRF/path/upload/password/session/CSRF helpers, `php.ini` baseline | [security](references/security.md) |
+| Profiling tools, OPcache/JIT, generators, SPL, caching, long-running workers | [performance](references/performance.md) |
+| PHPUnit/Pest, PHPStan/Psalm, style, Rector, Composer, CI, debugging | [testing-tooling](references/testing-tooling.md) |
+| WordPress plugins and themes | [wordpress](references/wordpress.md) |
+
+## Security Gate
+
+Before calling PHP code finished or reviewed, check these explicitly. The details and helper code are in [security](references/security.md).
+
+- SQL values use placeholders; identifiers come from an allowlist
+- Output is escaped for its context; uploads check the real MIME type and use generated names
+- External URLs: scheme allowlist, no userinfo, no IP literals, resolved addresses are public, redirects re-validated
+- Headers, redirects, filenames, and log lines have CR/LF and control characters removed
+- File paths are resolved with `realpath()` and compared with the base directory plus a trailing separator
+- Passwords use `password_hash()`; tokens use `random_bytes()`; secret comparisons use `hash_equals()`; secrets are not in the repository
+- No `unserialize()`, `eval()`, or `include` on untrusted input; no shell strings built from input
+- Fallible calls (`parse_url`, `json_decode`, `preg_match`, `fopen`, `rename`, array offsets) are checked
+- Production hides errors from clients (`display_errors=Off`) and returns generic 500 bodies
+- `composer.lock` is committed for applications and `composer audit` fails the build
 
 ## Output
 
 - Type-safe code with full type coverage
-- Memory-efficient processing using generators
+- Memory-efficient processing where data volume warrants it
 - Clean architecture with separated concerns
-- Optimized database queries
-- Comprehensive error handling
-- Secure implementations
-- PSR-compliant code
-- Profiled and measured improvements
+- Queries that are parameterized, indexed, and free of N+1 patterns
+- Error handling that logs detail and exposes none
+- Secure implementations, checked against the Security Gate
+- PSR-compliant code that passes the project's own tests and static analysis
+- Measured performance improvements, not guesses
